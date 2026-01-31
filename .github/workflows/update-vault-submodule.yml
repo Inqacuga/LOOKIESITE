@@ -1,0 +1,72 @@
+name: Update Vault & Deploy to Pages
+
+on:
+  repository_dispatch:
+    types: [lookie-updated]
+
+permissions:
+  contents: write      # Need write to commit submodule changes
+  pages: write
+  id-token: write
+
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
+
+jobs:
+  update-and-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      # Checkout site repo WITH submodule initialized
+      - name: Checkout LOOKIESITE with Vault submodule
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.PAT_FOR_SUBMODULE_UPDATES }}
+          submodules: true
+          submodules-recursive: true
+
+      - name: Update Vault submodule to latest main from LOOKIE
+        run: |
+          cd Vault
+          git checkout main || git checkout -B main
+          git pull origin main
+          cd ..
+          git add Vault
+          
+      - name: Commit submodule update
+        run: |
+          git config user.name "GitHub Actions - Lookie sync"
+          git config user.email "actions@github.com"
+          if git diff --cached --quiet; then
+            echo "No Vault changes to commit"
+          else
+            git commit -m "🔄 Update Vault submodule from LOOKIE"
+            git push
+          fi
+
+      # Now Vault/ is up to date - run your Kiln deploy
+      - name: Setup Pages
+        uses: actions/configure-pages@v5
+
+      - name: Setup Kiln
+        run: |
+          curl -L -o kiln https://github.com/otaleghani/kiln/releases/download/v0.3.13/kiln_linux_amd64
+          chmod +x kiln
+
+      - name: Build Site from Vault/
+        run: |
+          ./kiln generate \
+            --input "./LOOKIE" \
+            --output "./public" \
+            --url "https://embersofintention.github.io/LOOKIESITE" \
+            --name "Lookie LvK Stuff"
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: ./public
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
