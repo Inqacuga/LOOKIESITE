@@ -38,7 +38,7 @@ jobs:
           --output "./public" \
           --url "https://embersofintention.github.io/LOOKIESITE" \
           --name "Lookie LvK Stuff" \
-          --theme "Vault/kiln"
+          --theme "./Vault/kiln"
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
